@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crud
+  namespace: crud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crud
+  template:
+    metadata:
+      labels:
+        app: crud
+    spec:
+      containers:
+        - name: app
+          image: almuko/crud:latest
+          ports:
+            - containerPort: 9005
+          env:
+            - name: PORT
+              value: "9005"                     
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: crud-secret
+                  key: database-url

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crud-ingress
+  namespace: crud
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+   
+spec:
+  tls:
+    - hosts:
+        - crud.compnet.kz
+      secretName: crud-tls
+  rules:
+    - host: crud.compnet.kz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crud
+                port:
+                  number: 80

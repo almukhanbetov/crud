@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# IDE/editor
+.vscode
+.idea
+
+# Go build cache
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Докер не должен включать локальный .env
+.env
+
+# Optional: исключить тесты
+*_test.go
