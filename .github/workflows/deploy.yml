@@ -1,48 +1,71 @@
-name: Deploy to VPS via Docker + Kubernetes
+name: Build & Deploy crud to K3s
+
 on:
   push:
     branches:
       - main
+
+env:
+  IMAGE_NAME: almuko/crud   # 👈 твой DockerHub репозиторий
+
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: almuko/crud:latest
-          
+          tags: ${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo again
+        uses: actions/checkout@v3
+
       - name: Set up Kubeconfig
         run: |
           echo "${{ secrets.KUBECONFIG_CONTENT }}" > kubeconfig.yaml
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
+          kubectl version --client
+          kubectl cluster-info
 
-      - name: Deploy to K3s
+      - name: Create namespace (idempotent)
         run: |
-          # ✅ Создать namespace, если его нет
-          kubectl create namespace crud --dry-run=client -o yaml | kubectl apply -f -    
+          kubectl create namespace crud --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Deploy to K3s
+      - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f k3s/namespace.yaml
-          kubectl apply -f k3s/clusterissuer.yaml
-          kubectl apply -f k3s/secret.yaml
-          kubectl apply -f k3s/deployment.yaml
-          kubectl apply -f k3s/service.yaml
-          kubectl apply -f k3s/ingress.yaml
+          kubectl -n crud apply -f k3s/namespace.yaml
+          kubectl -n crud apply -f k3s/secret.yaml
+          kubectl -n crud apply -f k3s/configmap-app.yaml
+          kubectl -n crud apply -f k3s/deployment.yaml
+          kubectl -n crud apply -f k3s/service.yaml
+          if [ -f k3s/ingress.yaml ]; then
+            kubectl -n crud apply -f k3s/ingress.yaml
+          fi
+
+      - name: Debug resources
+        run: |
+          kubectl -n crud get all
+          kubectl -n crud describe deploy crud
 
       - name: Verify rollout status
         run: |
-          kubectl rollout status deployment/crud -n crud    
+          kubectl rollout status deployment/crud -n crud --timeout=120s
